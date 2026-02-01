@@ -24,9 +24,7 @@ export async function bumpMenuVersion() {
   // ensure meta row exists
   await adminClient
     .from("menu_meta")
-    .insert({ id: 1, menu_version: 1 })
-    .onConflict("id")
-    .ignore();
+    .insert({ id: 1, menu_version: 1 }, { onConflict: "id", ignoreDuplicates: true });
 
   const { error } = await adminClient.rpc("increment_menu_version");
   if (error) {
