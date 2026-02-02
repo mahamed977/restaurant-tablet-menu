@@ -23,7 +23,7 @@ export async function bumpMenuVersion() {
   const adminClient = supabaseAdmin();
   // ensure meta row exists
   const { error: metaErr } = await adminClient.from("menu_meta").insert({ id: 1, menu_version: 1 });
-  if (metaErr && metaErr.code !== "23505" && metaErr.status !== 409) {
+  if (metaErr && metaErr.code !== "23505") {
     throw metaErr;
   }
 
