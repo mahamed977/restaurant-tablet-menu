@@ -22,9 +22,10 @@ export async function logAudit(params: {
 export async function bumpMenuVersion() {
   const adminClient = supabaseAdmin();
   // ensure meta row exists
-  await adminClient
-    .from("menu_meta")
-    .insert({ id: 1, menu_version: 1 }, { onConflict: "id", ignoreDuplicates: true });
+  const { error: metaErr } = await adminClient.from("menu_meta").insert({ id: 1, menu_version: 1 });
+  if (metaErr && metaErr.code !== "23505" && metaErr.status !== 409) {
+    throw metaErr;
+  }
 
   const { error } = await adminClient.rpc("increment_menu_version");
   if (error) {
