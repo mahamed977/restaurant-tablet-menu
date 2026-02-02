@@ -1,27 +1,54 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import OfflineOverlay from "../../../components/Offline";
-import { MenuItemList } from "../../../components/MenuItemList";
 import { useMenuPolling } from "../../../hooks/useMenuPolling";
 import { useIdleReset } from "../../../hooks/useIdleReset";
-import Link from "next/link";
+import { MenuShell } from "../../../components/menu/MenuShell";
+import { CategoryTabs } from "../../../components/menu/CategoryTabs";
+import { SearchBar } from "../../../components/menu/SearchBar";
+import { MenuGrid } from "../../../components/menu/MenuGrid";
+import { MenuItemCard } from "../../../components/menu/MenuItemCard";
+import { CategoryWithItems } from "../../../types";
 
 export default function CategoryPage() {
   const params = useParams();
   const router = useRouter();
   const { menu, offline, loading } = useMenuPolling();
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [updatedLabel, setUpdatedLabel] = useState<string | undefined>(undefined);
   useIdleReset(true);
 
-  const category = menu?.find((c) => c.id === params?.id);
+  useEffect(() => {
+    if (!menu || menu.length === 0) return;
+    const paramId = typeof params?.id === "string" ? (params.id as string) : Array.isArray(params?.id) ? params.id[0] : null;
+    const fallback = menu[0]?.id;
+    setActiveCategoryId(paramId && menu.find((c) => c.id === paramId) ? paramId : fallback);
+    setUpdatedLabel(new Date().toLocaleTimeString());
+  }, [menu, params?.id]);
 
-  if (!loading && !category) {
+  const activeCategory: CategoryWithItems | undefined = useMemo(() => {
+    return menu?.find((c) => c.id === activeCategoryId);
+  }, [menu, activeCategoryId]);
+
+  const filteredItems = useMemo(() => {
+    if (!activeCategory) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return activeCategory.items;
+    return activeCategory.items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        (item.description ? item.description.toLowerCase().includes(q) : false)
+    );
+  }, [activeCategory, search]);
+
+  if (!loading && !activeCategory) {
     return (
-      <div className="app-shell">
-        <div className="card">
-          <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>Category not found</div>
-          <div className="spacer" />
-          <button className="btn" onClick={() => router.push("/")}>
+      <div className="ub-shell">
+        <div className="ub-main">
+          <div className="ub-skeleton">Category not found</div>
+          <button className="ub-back" onClick={() => router.push("/")}>
             Back to menu
           </button>
         </div>
@@ -30,19 +57,23 @@ export default function CategoryPage() {
   }
 
   return (
-    <div className="app-shell">
-      <OfflineOverlay visible={offline} />
-      <div className="flex-between" style={{ marginBottom: 14 }}>
-        <div>
-          <div style={{ fontSize: "2rem", fontWeight: 800 }}>{category?.name ?? "Loading…"}</div>
-          <Link href="/" className="pill">
-            ← All categories
-          </Link>
-        </div>
-        <div className="pill">Tap item to view details</div>
+    <MenuShell offline={offline} updatedLabel={updatedLabel}>
+      <div className="ub-controls">
+        <SearchBar value={search} onChange={setSearch} />
+        <CategoryTabs
+          categories={menu ?? []}
+          activeId={activeCategoryId}
+          onSelect={(id) => setActiveCategoryId(id)}
+        />
       </div>
-      {loading && <div className="card">Loading items…</div>}
-      {category && <MenuItemList items={category.items} />}
-    </div>
+      {loading && <div className="ub-skeleton">Loading items…</div>}
+      {activeCategory && (
+        <MenuGrid>
+          {filteredItems.map((item) => (
+            <MenuItemCard key={item.id} item={item} />
+          ))}
+        </MenuGrid>
+      )}
+    </MenuShell>
   );
 }
